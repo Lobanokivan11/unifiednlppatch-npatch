@@ -77,7 +77,7 @@ public class ModuleMain extends XposedModule {
         hookLocationManagerProviders(param.getClassLoader());
     }
 
-    private void hookSettingsSecure(ClassLoader classLoader) {
+    public void hookSettingsSecure(ClassLoader classLoader) {
         try {
             Class<?> settingsSecureClass = Class.forName("android.provider.Settings$Secure", true, classLoader);
             var getStringMethod = settingsSecureClass.getDeclaredMethod("getString", ContentResolver.class, String.class);
@@ -94,7 +94,7 @@ public class ModuleMain extends XposedModule {
         }
     }
 
-    private void hookLocationManagerProviders(ClassLoader classLoader) {
+    public void hookLocationManagerProviders(ClassLoader classLoader) {
         try {
             Class<?> locationManagerClass = Class.forName("android.location.LocationManager", true, classLoader);
             
