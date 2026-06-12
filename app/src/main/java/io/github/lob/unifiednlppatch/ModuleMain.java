@@ -3,6 +3,9 @@ package io.github.lob.unifiednlppatch;
 import android.os.Build;
 import android.util.Log;
 import android.util.TypedValue;
+import android.provider.Settings;
+import android.content.ContentResolver;
+import android.location.LocationManager;
 
 import android.annotation.SuppressLint;
 import androidx.annotation.NonNull;
@@ -11,12 +14,15 @@ import androidx.annotation.RequiresApi;
 import io.github.libxposed.api.XposedModule;
 
 public class ModuleMain extends XposedModule {
-    static final String TAG = "ModuleMain";
+    static final String TAG = "Nlp";
+    static final String TARGET_PKG = "org.microg.nlp";
 
     @Override
     @RequiresApi(Build.VERSION_CODES.Q)
     public void onPackageLoaded(@NonNull PackageLoadedParam param) {
-        // Module is universal
+        if ("android".equals(param.getPackageName())) {
+            hookSettingsSecure(param.getClassLoader());
+        }
     }
 
     @Override
@@ -49,7 +55,7 @@ public class ModuleMain extends XposedModule {
                             case "config_fusedLocationProviderPackageName":
                             case "config_defaultNetworkRecommendationProviderPackage":
                                 outValue.type = TypedValue.TYPE_STRING;
-                                outValue.string = "org.microg.nlp";
+                                outValue.string = TARGET_PKG;
                                 outValue.changingConfigurations = 0;
                                 return null;
                             case "config_enableGeocoderOverlay":
@@ -61,14 +67,50 @@ public class ModuleMain extends XposedModule {
                                 return null;
                         }
                     }
-                } catch (Throwable ignored) {
-                	// this need to be empty to avoid error
-                }
+                } catch (Throwable ignored) {}
                 return chain.proceed();
             });
 
         } catch (Throwable t) {
-            log(Log.ERROR, TAG, "Error injecting resources on Android 15", t);
+            log(Log.ERROR, TAG, "Error injecting resources", t);
+        }
+        hookLocationManagerProviders(param.getClassLoader());
+    }
+
+    private void hookSettingsSecure(ClassLoader classLoader) {
+        try {
+            Class<?> settingsSecureClass = Class.forName("android.provider.Settings$Secure", true, classLoader);
+            var getStringMethod = settingsSecureClass.getDeclaredMethod("getString", ContentResolver.class, String.class);
+
+            hook(getStringMethod).intercept(chain -> {
+                String name = (String) chain.getArg(1);
+                if ("location_provider_allowed_packages".equals(name) || "location_network_provider_package".equals(name)) {
+                    return TARGET_PKG;
+                }
+                return chain.proceed();
+            });
+        } catch (Throwable t) {
+            log(Log.DEBUG, TAG, "Settings.Secure hook skipped or failed", t);
+        }
+    }
+
+    private void hookLocationManagerProviders(ClassLoader classLoader) {
+        try {
+            Class<?> locationManagerClass = Class.forName("android.location.LocationManager", true, classLoader);
+            
+            try {
+                var getProviderPackageMethod = locationManagerClass.getDeclaredMethod("getProviderPackage", String.class);
+                hook(getProviderPackageMethod).intercept(chain -> {
+                    String provider = (String) chain.getArg(0);
+                    if (LocationManager.NETWORK_PROVIDER.equals(provider) || "fused".equals(provider)) {
+                        return TARGET_PKG;
+                    }
+                    return chain.proceed();
+                });
+            } catch (NoSuchMethodException ignored) {}
+
+        } catch (Throwable t) {
+            log(Log.DEBUG, TAG, "LocationManager hook skipped or failed", t);
         }
     }
 }
