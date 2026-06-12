@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:name=".App"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:description="Hooks UnifiedNlp to app via NPATCH (Non-root) Framework"
+        android:label="UnifiedNlp NPATCH Module"
+        android:theme="@android:style/Theme.DeviceDefault"
+        tools:ignore="MissingApplicationIcon">
+    </application>
+</manifest>
