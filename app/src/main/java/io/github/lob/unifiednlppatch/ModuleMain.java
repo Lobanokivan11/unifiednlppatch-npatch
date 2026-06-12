@@ -19,6 +19,7 @@ public class ModuleMain extends XposedModule {
     }
 
     @Override
+    @SuppressLint("SoonBlockedPrivateApi")
     public void onPackageReady(@NonNull PackageReadyParam param) {
         try {
             Class<?> resourcesImplClass = Class.forName("android.content.res.ResourcesImpl", true, param.getClassLoader());
