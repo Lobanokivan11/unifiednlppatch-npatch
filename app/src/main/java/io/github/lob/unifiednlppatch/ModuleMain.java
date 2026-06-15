@@ -26,8 +26,19 @@ public class ModuleMain extends XposedModule {
     @Override
     @SuppressLint("SoonBlockedPrivateApi")
     public void onPackageReady(@NonNull PackageReadyParam param) {
+        // 1. Hook the System Resources
+        hookResources(param.getClassLoader());
+
+        // 2. Hook Location Provider Packages (CRITICAL: Added this missing call)
+        hookSettingsSecure(param.getClassLoader());
+
+        // 3. Hook LocationManager Package Names
+        hookLocationManagerProviders(param.getClassLoader());
+    }
+
+    private void hookResources(ClassLoader classLoader) {
         try {
-            Class<?> resourcesImplClass = Class.forName("android.content.res.ResourcesImpl", true, param.getClassLoader());
+            Class<?> resourcesImplClass = Class.forName("android.content.res.ResourcesImpl", true, classLoader);
             var getValueMethod = resourcesImplClass.getDeclaredMethod("getValue", int.class, TypedValue.class, boolean.class);
             
             hook(getValueMethod).intercept(chain -> {
@@ -60,7 +71,7 @@ public class ModuleMain extends XposedModule {
                             case "config_enableNetworkLocationOverlay":
                             case "config_enableNetworkLocationProviderOverlay":
                                 outValue.type = TypedValue.TYPE_INT_BOOLEAN;
-                                outValue.data = 0;
+                                outValue.data = 0; // Disable overlays to force using the explicit package name
                                 outValue.changingConfigurations = 0;
                                 return null;
                         }
@@ -72,7 +83,6 @@ public class ModuleMain extends XposedModule {
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "Error injecting resources", t);
         }
-        hookLocationManagerProviders(param.getClassLoader());
     }
 
     public void hookSettingsSecure(ClassLoader classLoader) {
@@ -82,6 +92,7 @@ public class ModuleMain extends XposedModule {
 
             hook(getStringMethod).intercept(chain -> {
                 String name = (String) chain.getArg(1);
+                // Hooking settings strings evaluated by microG self-check tools
                 if ("location_provider_allowed_packages".equals(name) || "location_network_provider_package".equals(name)) {
                     return TARGET_PKG;
                 }
