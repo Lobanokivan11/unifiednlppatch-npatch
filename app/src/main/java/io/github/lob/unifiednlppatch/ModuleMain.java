@@ -20,9 +20,8 @@ public class ModuleMain extends XposedModule {
     @Override
     @RequiresApi(Build.VERSION_CODES.Q)
     public void onPackageLoaded(@NonNull PackageLoadedParam param) {
-        // if ("android".equals(param.getPackageName())) {
-        //    hookSettingsSecure(param.getClassLoader());
-        //}
+        // hookSettingsSecure(param.getClassLoader());
+        hookLocationManagerProviders(param.getClassLoader());
     }
 
     @Override
