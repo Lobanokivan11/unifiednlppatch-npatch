@@ -36,6 +36,7 @@ public class ModuleMain extends XposedModule {
         hookLocationManagerProviders(param.getClassLoader());
     }
 
+    @SuppressLint("SoonBlockedPrivateApi")
     private void hookResources(ClassLoader classLoader) {
         try {
             Class<?> resourcesImplClass = Class.forName("android.content.res.ResourcesImpl", true, classLoader);
@@ -85,6 +86,7 @@ public class ModuleMain extends XposedModule {
         }
     }
 
+    @SuppressLint("SoonBlockedPrivateApi")
     public void hookSettingsSecure(ClassLoader classLoader) {
         try {
             Class<?> settingsSecureClass = Class.forName("android.provider.Settings$Secure", true, classLoader);
@@ -103,6 +105,7 @@ public class ModuleMain extends XposedModule {
         }
     }
 
+    @SuppressLint("SoonBlockedPrivateApi")
     public void hookLocationManagerProviders(ClassLoader classLoader) {
         try {
             Class<?> locationManagerClass = Class.forName("android.location.LocationManager", true, classLoader);
