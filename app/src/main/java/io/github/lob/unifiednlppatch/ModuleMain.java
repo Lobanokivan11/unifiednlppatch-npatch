@@ -20,8 +20,7 @@ public class ModuleMain extends XposedModule {
     @Override
     @RequiresApi(Build.VERSION_CODES.Q)
     public void onPackageLoaded(@NonNull PackageLoadedParam param) {
-        // hookSettingsSecure(param.getClassLoader());
-        hookLocationManagerProviders(param.getClassLoader());
+        hookLocationManagerProviders(param.classLoader);
     }
 
     @Override
@@ -73,7 +72,7 @@ public class ModuleMain extends XposedModule {
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "Error injecting resources", t);
         }
-        hookLocationManagerProviders(param.getClassLoader());
+        hookLocationManagerProviders(param.classLoader);
     }
 
     public void hookSettingsSecure(ClassLoader classLoader) {
