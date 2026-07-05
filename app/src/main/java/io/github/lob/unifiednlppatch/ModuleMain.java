@@ -12,10 +12,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 import io.github.libxposed.api.XposedModule;
+import io.github.libxposed.api.XposedInterface.HookHandle;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ModuleMain extends XposedModule {
     static final String TAG = "Nlp";
     static final String TARGET_PKG = "org.microg.nlp";
+    private final List<HookHandle> currentHooks = new ArrayList<>();
 
     @Override
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -26,6 +30,9 @@ public class ModuleMain extends XposedModule {
     @Override
     @SuppressLint("SoonBlockedPrivateApi")
     public void onPackageReady(@NonNull PackageReadyParam param) {
+        // clear hooks for hot reloading support
+        currentHooks.clear();
+
         // 1. Hook the System Resources
         hookResources(param.getClassLoader());
 
@@ -36,13 +43,29 @@ public class ModuleMain extends XposedModule {
         hookLocationManagerProviders(param.getClassLoader());
     }
 
+    @Override
+    public boolean onHotReloading(@NonNull HotReloadingParam param) {
+        log(Log.INFO, TAG, "onHotReloading");
+        param.setSavedInstanceState("Hello from last generation");
+        return true;
+    }
+
+    @Override
+    public void onHotReloaded(@NonNull HotReloadedParam param) {
+        log(Log.INFO, TAG, "onHotReloaded: " + param.getProcessName() + ", " + param.getOldHookHandles().size() + " old hooks");
+        log(Log.INFO, TAG, "savedInstanceState: " + param.getSavedInstanceState());
+        
+        // correctly unsubscribe from old hooks
+        param.getOldHookHandles().forEach(HookHandle::unhook);
+    }
+
     @SuppressLint("SoonBlockedPrivateApi")
     private void hookResources(ClassLoader classLoader) {
         try {
             Class<?> resourcesImplClass = Class.forName("android.content.res.ResourcesImpl", true, classLoader);
             var getValueMethod = resourcesImplClass.getDeclaredMethod("getValue", int.class, TypedValue.class, boolean.class);
             
-            hook(getValueMethod).intercept(chain -> {
+            HookHandle handle = hook(getValueMethod).intercept(chain -> {
                 int resId = (int) chain.getArg(0);
                 TypedValue outValue = (TypedValue) chain.getArg(1);
                 
@@ -80,6 +103,7 @@ public class ModuleMain extends XposedModule {
                 } catch (Throwable ignored) {}
                 return chain.proceed();
             });
+            currentHooks.add(handle);
 
         } catch (Throwable t) {
             log(Log.ERROR, TAG, "Error injecting resources", t);
@@ -92,7 +116,7 @@ public class ModuleMain extends XposedModule {
             Class<?> settingsSecureClass = Class.forName("android.provider.Settings$Secure", true, classLoader);
             var getStringMethod = settingsSecureClass.getDeclaredMethod("getString", ContentResolver.class, String.class);
 
-            hook(getStringMethod).intercept(chain -> {
+            HookHandle handle = hook(getStringMethod).intercept(chain -> {
                 String name = (String) chain.getArg(1);
                 // Hooking settings strings evaluated by microG self-check tools
                 if ("location_provider_allowed_packages".equals(name) || "location_network_provider_package".equals(name)) {
@@ -100,6 +124,7 @@ public class ModuleMain extends XposedModule {
                 }
                 return chain.proceed();
             });
+            currentHooks.add(handle);
         } catch (Throwable t) {
             log(Log.DEBUG, TAG, "Settings.Secure hook skipped or failed", t);
         }
@@ -112,13 +137,14 @@ public class ModuleMain extends XposedModule {
             
             try {
                 var getProviderPackageMethod = locationManagerClass.getDeclaredMethod("getProviderPackage", String.class);
-                hook(getProviderPackageMethod).intercept(chain -> {
+                HookHandle handle = hook(getProviderPackageMethod).intercept(chain -> {
                     String provider = (String) chain.getArg(0);
                     if (LocationManager.NETWORK_PROVIDER.equals(provider) || "fused".equals(provider)) {
                         return TARGET_PKG;
                     }
                     return chain.proceed();
                 });
+                currentHooks.add(handle);
             } catch (NoSuchMethodException ignored) {}
 
         } catch (Throwable t) {
